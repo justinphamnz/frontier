@@ -424,11 +424,7 @@ impl<T: Config> Pallet<T> {
 		let receipts_root =
 			ethereum::util::ordered_trie_root(receipts.iter().map(|r| rlp::encode(r)));
 		let partial_header = ethereum::PartialHeader {
-			parent_hash: if block_number > U256::zero() {
-				BlockHash::<T>::get(U256::from(block_number - 1))
-			} else {
-				H256::default()
-			},
+			parent_hash: Self::current_block_hash().unwrap_or_default(),
 			beneficiary: pallet_evm::Pallet::<T>::find_author(),
 			state_root: T::StateRoot::get(),
 			receipts_root,
@@ -705,6 +701,11 @@ impl<T: Config> Pallet<T> {
 	/// Get current block.
 	pub fn current_block() -> Option<ethereum::BlockV2> {
 		CurrentBlock::<T>::get()
+	}
+
+	/// Get current block hash
+	pub fn current_block_hash() -> Option<H256> {
+		Self::current_block().map(|block| block.header.hash())
 	}
 
 	/// Get receipts by number.
