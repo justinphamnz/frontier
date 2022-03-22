@@ -20,6 +20,8 @@ mod eth;
 mod eth_pubsub;
 mod overrides;
 
+pub mod format;
+
 pub use eth::{
 	EthApi, EthApiServer, EthBlockDataCache, EthFilterApi, EthFilterApiServer, EthTask, NetApi,
 	NetApiServer, Web3Api, Web3ApiServer,
@@ -32,9 +34,10 @@ pub use overrides::{
 };
 
 use ethereum_types::{H160, H256};
-use evm::{ExitError, ExitReason};
+use evm::ExitError;
 pub use fc_rpc_core::types::TransactionMessage;
 use jsonrpc_core::{Error, ErrorCode, Value};
+use pallet_evm::ExitReason;
 use rustc_hex::ToHex;
 use sha3::{Digest, Keccak256};
 
@@ -54,7 +57,7 @@ pub mod frontier_backend_client {
 	use jsonrpc_core::Result as RpcResult;
 
 	use ethereum_types::H256;
-	use fp_storage::EthereumStorageSchema;
+	use pallet_ethereum::EthereumStorageSchema;
 
 	pub fn native_block_id<B: BlockT, C>(
 		client: &C,
@@ -227,9 +230,11 @@ pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> Result<()
 			// should contain a utf-8 encoded revert reason.
 			if data.len() > 68 {
 				let message_len = data[36..68].iter().sum::<u8>();
-				let body: &[u8] = &data[68..68 + message_len as usize];
-				if let Ok(reason) = std::str::from_utf8(body) {
-					message = format!("{} {}", message, reason.to_string());
+				if data.len() >= 68 + message_len as usize {
+					let body: &[u8] = &data[68..68 + message_len as usize];
+					if let Ok(reason) = std::str::from_utf8(body) {
+						message = format!("{} {}", message, reason.to_string());
+					}
 				}
 			}
 			Err(Error {

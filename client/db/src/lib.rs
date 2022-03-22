@@ -21,7 +21,8 @@ mod utils;
 pub use sp_database::Database;
 
 use codec::{Decode, Encode};
-use fp_storage::{EthereumStorageSchema, PALLET_ETHEREUM_SCHEMA_CACHE};
+use fp_storage::PALLET_ETHEREUM_SCHEMA_CACHE;
+use pallet_ethereum::EthereumStorageSchema;
 use parking_lot::Mutex;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
