@@ -1249,6 +1249,7 @@ version = "2.0.0-dev"
 dependencies = [
  "fp-storage",
  "kvdb-rocksdb",
+ "pallet-ethereum",
  "parity-scale-codec",
  "parking_lot",
  "sp-core 5.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.17)",
@@ -1292,6 +1293,7 @@ dependencies = [
  "log",
  "lru 0.6.6",
  "pallet-ethereum",
+ "pallet-evm",
  "parity-scale-codec",
  "prometheus",
  "rand 0.8.5",
@@ -1310,7 +1312,6 @@ dependencies = [
  "sp-runtime 5.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.17)",
  "sp-storage 5.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.17)",
  "substrate-prometheus-endpoint",
- "tokio",
 ]
 
 [[package]]
@@ -5622,9 +5623,9 @@ dependencies = [
 
 [[package]]
 name = "slab"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9def91fd1e018fe007022791f865d0ccc9b3a0d5001e01aabb8b40e46000afb5"
+checksum = "eb703cfe953bccee95685111adeedb76fabe4e97549a58d16f03ea7b9367bb32"
 
 [[package]]
 name = "smallvec"
@@ -6920,9 +6921,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.23"
+version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa31669fa42c09c34d94d8165dd2012e8ff3c66aca50f3bb226b68f216f2706c"
+checksum = "90442985ee2f57c9e1b548ee72ae842f4a9a20e3f417cc38dbc5dc684d9bb4ee"
 dependencies = [
  "lazy_static",
  "valuable",

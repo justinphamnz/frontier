@@ -25,8 +25,8 @@ use std::{
 };
 
 use codec::{Decode, Encode};
-use fp_storage::{EthereumStorageSchema, PALLET_ETHEREUM_SCHEMA_CACHE};
-use parking_lot::Mutex;
+use fp_storage::PALLET_ETHEREUM_SCHEMA_CACHE;
+use pallet_ethereum::EthereumStorageSchema;use parking_lot::Mutex;
 use sp_core::H256;
 pub use sp_database::Database;
 use sp_runtime::traits::Block as BlockT;

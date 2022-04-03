@@ -23,7 +23,6 @@ prometheus = { version = "0.13.0", default-features = false }
 rand = "0.8"
 rlp = "0.5"
 sha3 = "0.10"
-tokio = { version = "1.14", features = [ "sync" ] }
 
 prometheus-endpoint = { package = "substrate-prometheus-endpoint",  git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
@@ -44,6 +43,7 @@ fp-storage = { version = "2.0.0-dev", path = "../../primitives/storage" }
 fc-db = { version = "2.0.0-dev", path = "../db" }
 fc-rpc-core = { version = "1.1.0-dev", path = "../rpc-core" }
 
+pallet-evm = { version = "6.0.0-dev", path = "../../frame/evm" }
 pallet-ethereum = { version = "4.0.0-dev", path = "../../frame/ethereum" }
 
 [features]

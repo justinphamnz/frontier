@@ -32,7 +32,7 @@ use ethereum_types::{Bloom, BloomInput, H160, H256, H64, U256};
 use evm::ExitReason;
 use fp_consensus::{PostLog, PreLog, FRONTIER_ENGINE_ID};
 use fp_evm::CallOrCreateInfo;
-use fp_storage::{EthereumStorageSchema, PALLET_ETHEREUM_SCHEMA};
+use fp_storage::PALLET_ETHEREUM_SCHEMA;
 #[cfg(feature = "try-runtime")]
 use frame_support::traits::OnRuntimeUpgradeHelpersExt;
 use frame_support::{
@@ -42,7 +42,7 @@ use frame_support::{
 	traits::{EnsureOrigin, Get, PalletInfoAccess},
 	weights::{Pays, PostDispatchInfo, Weight},
 };
-use frame_system::{pallet_prelude::OriginFor, WeightInfo};
+use frame_system::pallet_prelude::OriginFor;
 use pallet_evm::{BlockHashMapping, FeeCalculator, GasWeightMapping, Runner};
 use sha3::{Digest, Keccak256};
 use sp_runtime::{
@@ -57,7 +57,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 
 pub use ethereum::{
 	AccessListItem, BlockV2 as Block, LegacyTransactionMessage, Log, ReceiptV3 as Receipt,
-	TransactionAction, TransactionV2 as Transaction,
+	TransactionAction, TransactionV0 as LegacyTransaction, TransactionV2 as Transaction,
 };
 pub use fp_rpc::TransactionStatus;
 
@@ -208,7 +208,6 @@ pub mod pallet {
 
 		fn on_initialize(_: T::BlockNumber) -> Weight {
 			Pending::<T>::kill();
-			let mut weight = T::SystemWeightInfo::kill_storage(1);
 
 			// If the digest contain an existing ethereum block(encoded as PreLog), If contains,
 			// execute the imported block firstly and disable transact dispatch function.
@@ -223,16 +222,10 @@ pub mod pallet {
 					Self::validate_transaction_in_block(source, &transaction).expect(
 						"pre-block transaction verification failed; the block cannot be built",
 					);
-					let r = Self::apply_validated_transaction(source, transaction);
-					weight = weight.saturating_add(r.actual_weight.unwrap_or(0 as Weight));
+					Self::apply_validated_transaction(source, transaction);
 				}
 			}
-			// Account for `on_finalize` weight:
-			//	- read: frame_system::Pallet::<T>::digest()
-			//	- read: frame_system::Pallet::<T>::block_number()
-			//	- write: <Pallet<T>>::store_block()
-			//	- write: <BlockHash<T>>::remove()
-			weight.saturating_add(T::DbWeight::get().reads_writes(2, 2))
+			0
 		}
 
 		fn on_runtime_upgrade() -> Weight {
@@ -241,7 +234,7 @@ pub mod pallet {
 				&EthereumStorageSchema::V3,
 			);
 
-			T::DbWeight::get().write
+			0
 		}
 	}
 
@@ -430,7 +423,7 @@ impl<T: Config> Pallet<T> {
 			ethereum::util::ordered_trie_root(receipts.iter().map(|r| rlp::encode(r)));
 		let partial_header = ethereum::PartialHeader {
 			parent_hash: if block_number > U256::zero() {
-				BlockHash::<T>::get(block_number - 1)
+				BlockHash::<T>::get(U256::from(block_number - 1))
 			} else {
 				H256::default()
 			},
@@ -718,11 +711,6 @@ impl<T: Config> Pallet<T> {
 		CurrentBlock::<T>::get()
 	}
 
-	/// Get current block hash
-	pub fn current_block_hash() -> Option<H256> {
-		Self::current_block().map(|block| block.header.hash())
-	}
-
 	/// Get receipts by number.
 	pub fn current_receipts() -> Option<Vec<Receipt>> {
 		CurrentReceipts::<T>::get()
@@ -926,6 +914,21 @@ impl<T: Config> Pallet<T> {
 pub enum ReturnValue {
 	Bytes(Vec<u8>),
 	Hash(H160),
+}
+
+/// The schema version for Pallet Ethereum's storage
+#[derive(Clone, Copy, Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
+pub enum EthereumStorageSchema {
+	Undefined,
+	V1,
+	V2,
+	V3,
+}
+
+impl Default for EthereumStorageSchema {
+	fn default() -> Self {
+		Self::Undefined
+	}
 }
 
 pub struct IntermediateStateRoot<T>(PhantomData<T>);
