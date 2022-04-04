@@ -1249,6 +1249,7 @@ version = "2.0.0-dev"
 dependencies = [
  "fp-storage",
  "kvdb-rocksdb",
+ "pallet-ethereum",
  "parity-scale-codec",
  "parking_lot",
  "sp-core",
@@ -1292,6 +1293,7 @@ dependencies = [
  "log",
  "lru 0.6.6",
  "pallet-ethereum",
+ "pallet-evm",
  "parity-scale-codec",
  "prometheus",
  "rand 0.8.5",
