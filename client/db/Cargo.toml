@@ -16,4 +16,6 @@ sp-core = { version = "5.0.0", git = "https://github.com/paritytech/substrate", 
 sp-database = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 sp-runtime = { version = "5.0.0", git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
 
+pallet-ethereum = { version = "4.0.0-dev", path = "../../frame/ethereum" }
+
 fp-storage = { version = "2.0.0-dev", path = "../../primitives/storage" }

@@ -166,16 +166,3 @@ impl<'a, Address: Decode, Signature: Decode, Call: Decode, Extra: SignedExtensio
 			.map(Self)
 	}
 }
-
-impl<Address, Call, Signature, Extra> From<UncheckedExtrinsic<Address, Call, Signature, Extra>>
-	for OpaqueExtrinsic
-where
-	Address: Encode,
-	Signature: Encode,
-	Call: Encode,
-	Extra: SignedExtension,
-{
-	fn from(extrinsic: UncheckedExtrinsic<Address, Call, Signature, Extra>) -> Self {
-		extrinsic.0.into()
-	}
-}

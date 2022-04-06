@@ -44,7 +44,10 @@ fp-storage = { version = "2.0.0-dev", path = "../../primitives/storage" }
 fc-db = { version = "2.0.0-dev", path = "../db" }
 fc-rpc-core = { version = "1.1.0-dev", path = "../rpc-core" }
 
+pallet-evm = { version = "6.0.0-dev", path = "../../frame/evm" }
 pallet-ethereum = { version = "4.0.0-dev", path = "../../frame/ethereum" }
+
+parking_lot = "0.11.1"
 
 [features]
 rpc_binary_search_estimate = []
