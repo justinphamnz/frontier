@@ -24,27 +24,30 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::comparison_chain, clippy::large_enum_variant)]
 
+mod catch_exec_info;
 #[cfg(all(feature = "std", test))]
 mod mock;
 #[cfg(all(feature = "std", test))]
 mod tests;
 
+pub use catch_exec_info::catch_exec_info;
+
 use ethereum_types::{Bloom, BloomInput, H160, H256, H64, U256};
 use evm::ExitReason;
 use fp_consensus::{PostLog, PreLog, FRONTIER_ENGINE_ID};
-use fp_ethereum::{TransactionData, ValidatedTransaction as ValidatedTransactionT};
+use fp_ethereum::{
+	TransactionData, TransactionValidationError, ValidatedTransaction as ValidatedTransactionT,
+};
 use fp_evm::{
 	CallOrCreateInfo, CheckEvmTransaction, CheckEvmTransactionConfig, InvalidEvmTransactionError,
 };
 use fp_storage::{EthereumStorageSchema, PALLET_ETHEREUM_SCHEMA};
-#[cfg(feature = "try-runtime")]
-use frame_support::traits::OnRuntimeUpgradeHelpersExt;
 use frame_support::{
 	codec::{Decode, Encode, MaxEncodedLen},
-	dispatch::DispatchResultWithPostInfo,
+	dispatch::{DispatchInfo, DispatchResultWithPostInfo, Pays, PostDispatchInfo},
 	scale_info::TypeInfo,
 	traits::{EnsureOrigin, Get, PalletInfoAccess},
-	weights::{DispatchInfo, Pays, PostDispatchInfo, Weight},
+	weights::Weight,
 };
 use frame_system::{pallet_prelude::OriginFor, CheckWeight, WeightInfo};
 use pallet_evm::{BlockHashMapping, FeeCalculator, GasWeightMapping, Runner};
@@ -64,7 +67,7 @@ pub use ethereum::{
 };
 pub use fp_rpc::TransactionStatus;
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum RawOrigin {
 	EthereumTransaction(H160),
 }
@@ -100,7 +103,7 @@ impl<T> Call<T>
 where
 	OriginFor<T>: Into<Result<RawOrigin, OriginFor<T>>>,
 	T: Send + Sync + Config,
-	T::Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
 	pub fn is_self_contained(&self) -> bool {
 		matches!(self, Call::transact { .. })
@@ -125,7 +128,7 @@ where
 	pub fn pre_dispatch_self_contained(
 		&self,
 		origin: &H160,
-		dispatch_info: &DispatchInfoOf<T::Call>,
+		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		if let Call::transact { transaction } = self {
@@ -145,7 +148,7 @@ where
 	pub fn validate_self_contained(
 		&self,
 		origin: &H160,
-		dispatch_info: &DispatchInfoOf<T::Call>,
+		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Option<TransactionValidity> {
 		if let Call::transact { transaction } = self {
@@ -171,14 +174,6 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_timestamp::Config + pallet_evm::Config {
-		/// The overarching event type.
-		type Event: From<Event> + IsType<<Self as frame_system::Config>::Event>;
-		/// How Ethereum state root is calculated.
-		type StateRoot: Get<H256>;
-	}
-
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::without_storage_info]
@@ -186,6 +181,14 @@ pub mod pallet {
 
 	#[pallet::origin]
 	pub type Origin = RawOrigin;
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config + pallet_timestamp::Config + pallet_evm::Config {
+		/// The overarching event type.
+		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// How Ethereum state root is calculated.
+		type StateRoot: Get<H256>;
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -229,7 +232,7 @@ pub mod pallet {
 					let r = Self::apply_validated_transaction(source, transaction)
 						.expect("pre-block apply transaction failed; the block cannot be built");
 
-					weight = weight.saturating_add(r.actual_weight.unwrap_or(0));
+					weight = weight.saturating_add(r.actual_weight.unwrap_or_default());
 				}
 			}
 			// Account for `on_finalize` weight:
@@ -246,7 +249,7 @@ pub mod pallet {
 				&EthereumStorageSchema::V3,
 			);
 
-			T::DbWeight::get().write
+			T::DbWeight::get().writes(1)
 		}
 	}
 
@@ -256,10 +259,14 @@ pub mod pallet {
 		OriginFor<T>: Into<Result<RawOrigin, OriginFor<T>>>,
 	{
 		/// Transact an Ethereum transaction.
-		#[pallet::weight(<T as pallet_evm::Config>::GasWeightMapping::gas_to_weight({
-			let transaction_data: TransactionData = transaction.into();
-			transaction_data.gas_limit.unique_saturated_into()
-		}))]
+		#[pallet::call_index(0)]
+		#[pallet::weight({
+			let without_base_extrinsic_weight = true;
+			<T as pallet_evm::Config>::GasWeightMapping::gas_to_weight({
+				let transaction_data: TransactionData = transaction.into();
+				transaction_data.gas_limit.unique_saturated_into()
+			}, without_base_extrinsic_weight)
+		})]
 		pub fn transact(
 			origin: OriginFor<T>,
 			transaction: Transaction,
@@ -278,8 +285,13 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event {
-		/// An ethereum transaction was successfully executed. [from, to/contract_address, transaction_hash, exit_reason]
-		Executed(H160, H160, H256, ExitReason),
+		/// An ethereum transaction was successfully executed.
+		Executed {
+			from: H160,
+			to: H160,
+			transaction_hash: H256,
+			exit_reason: ExitReason,
+		},
 	}
 
 	#[pallet::error]
@@ -386,7 +398,9 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let ommers = Vec::<ethereum::Header>::new();
-		let receipts_root = ethereum::util::ordered_trie_root(receipts.iter().map(rlp::encode));
+		let receipts_root = ethereum::util::ordered_trie_root(
+			receipts.iter().map(ethereum::EnvelopedEncodable::encode),
+		);
 		let partial_header = ethereum::PartialHeader {
 			parent_hash: if block_number > U256::zero() {
 				BlockHash::<T>::get(block_number - 1)
@@ -506,6 +520,8 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResultWithPostInfo {
 		let (to, _, info) = Self::execute(source, &transaction, None)?;
 
+		catch_exec_info::fill_exec_info(&info);
+
 		let pending = Pending::<T>::get();
 		let transaction_hash = transaction.hash();
 		let transaction_index = pending.len() as u32;
@@ -589,16 +605,17 @@ impl<T: Config> Pallet<T> {
 
 		Pending::<T>::append((transaction, status, receipt));
 
-		Self::deposit_event(Event::Executed(
-			source,
-			dest.unwrap_or_default(),
+		Self::deposit_event(Event::Executed {
+			from: source,
+			to: dest.unwrap_or_default(),
 			transaction_hash,
-			reason,
-		));
+			exit_reason: reason,
+		});
 
 		Ok(PostDispatchInfo {
 			actual_weight: Some(T::GasWeightMapping::gas_to_weight(
 				used_gas.unique_saturated_into(),
+				true,
 			)),
 			pays_fee: Pays::No,
 		})
@@ -775,7 +792,7 @@ impl<T: Config> Pallet<T> {
 
 	pub fn migrate_block_v0_to_v2() -> Weight {
 		let db_weights = T::DbWeight::get();
-		let mut weight: Weight = db_weights.read;
+		let mut weight: Weight = db_weights.reads(1);
 		let item = b"CurrentBlock";
 		let block_v0 = frame_support::storage::migration::get_storage_value::<ethereum::BlockV0>(
 			Self::name().as_bytes(),
@@ -783,7 +800,7 @@ impl<T: Config> Pallet<T> {
 			&[],
 		);
 		if let Some(block_v0) = block_v0 {
-			weight = weight.saturating_add(db_weights.write);
+			weight = weight.saturating_add(db_weights.writes(1));
 			let block_v2: ethereum::BlockV2 = block_v0.into();
 			frame_support::storage::migration::put_storage_value::<ethereum::BlockV2>(
 				Self::name().as_bytes(),
@@ -796,7 +813,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	pub fn pre_migrate_block_v2() -> Result<(), &'static str> {
+	pub fn pre_migrate_block_v2() -> Result<Vec<u8>, &'static str> {
 		let item = b"CurrentBlock";
 		let block_v0 = frame_support::storage::migration::get_storage_value::<ethereum::BlockV0>(
 			Self::name().as_bytes(),
@@ -804,22 +821,23 @@ impl<T: Config> Pallet<T> {
 			&[],
 		);
 		if let Some(block_v0) = block_v0 {
-			Self::set_temp_storage(block_v0.header.number, "number");
-			Self::set_temp_storage(block_v0.header.parent_hash, "parent_hash");
-			Self::set_temp_storage(block_v0.transactions.len() as u64, "transaction_len");
+			Ok((
+				block_v0.header.number,
+				block_v0.header.parent_hash,
+				block_v0.transactions.len() as u64,
+			)
+				.encode())
+		} else {
+			Ok(Vec::new())
 		}
-		Ok(())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	pub fn post_migrate_block_v2() -> Result<(), &'static str> {
-		let v0_number =
-			Self::get_temp_storage("number").expect("We stored a number; it should be there; qed");
-		let v0_parent_hash = Self::get_temp_storage("parent_hash")
-			.expect("We stored a parent hash; it should be there; qed");
-		let v0_transaction_len: u64 = Self::get_temp_storage("transaction_len")
-			.expect("We stored a transaction count; it should be there; qed");
-
+	pub fn post_migrate_block_v2(v0_data: Vec<u8>) -> Result<(), &'static str> {
+		let (v0_number, v0_parent_hash, v0_transaction_len): (U256, H256, u64) = Decode::decode(
+			&mut v0_data.as_slice(),
+		)
+		.expect("the state parameter should be something that was generated by pre_upgrade");
 		let item = b"CurrentBlock";
 		let block_v2 = frame_support::storage::migration::get_storage_value::<ethereum::BlockV2>(
 			Self::name().as_bytes(),
@@ -867,26 +885,16 @@ impl<T: Config> BlockHashMapping for EthereumBlockHashMapping<T> {
 	}
 }
 
-#[repr(u8)]
-enum TransactionValidationError {
-	#[allow(dead_code)]
-	UnknownError,
-	InvalidChainId,
-	InvalidSignature,
-	InvalidGasLimit,
-	MaxFeePerGasTooLow,
-}
-
 pub struct InvalidTransactionWrapper(InvalidTransaction);
 
 impl From<InvalidEvmTransactionError> for InvalidTransactionWrapper {
 	fn from(validation_error: InvalidEvmTransactionError) -> Self {
 		match validation_error {
 			InvalidEvmTransactionError::GasLimitTooLow => InvalidTransactionWrapper(
-				InvalidTransaction::Custom(TransactionValidationError::InvalidGasLimit as u8),
+				InvalidTransaction::Custom(TransactionValidationError::GasLimitTooLow as u8),
 			),
 			InvalidEvmTransactionError::GasLimitTooHigh => InvalidTransactionWrapper(
-				InvalidTransaction::Custom(TransactionValidationError::InvalidGasLimit as u8),
+				InvalidTransaction::Custom(TransactionValidationError::GasLimitTooHigh as u8),
 			),
 			InvalidEvmTransactionError::GasPriceTooLow => {
 				InvalidTransactionWrapper(InvalidTransaction::Payment)
