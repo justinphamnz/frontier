@@ -518,7 +518,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig
+	impl<T: Config> BuildGenesisConfig for GenesisConfig
 	where
 		U256: UniqueSaturatedInto<BalanceOf<T>>,
 	{

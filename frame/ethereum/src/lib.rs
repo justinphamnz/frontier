@@ -343,7 +343,7 @@ pub mod pallet {
 	pub struct GenesisConfig {}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig {
 		fn build(&self) {
 			<Pallet<T>>::store_block(None, U256::zero());
 			frame_support::storage::unhashed::put::<EthereumStorageSchema>(
