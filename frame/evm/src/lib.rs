@@ -85,6 +85,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::RawOrigin;
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::{Decode, Encode, Hasher, H160, H256, U256};
 use sp_runtime::{
 	traits::{BadOrigin, Saturating, UniqueSaturatedInto, Zero},
