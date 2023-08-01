@@ -85,13 +85,15 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	#[derive(Default)]
-	pub struct GenesisConfig {
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T> {
 		pub min_gas_price: U256,
+		#[serde(skip)]
+		pub _marker: PhantomData<T>;
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			MinGasPrice::<T>::put(self.min_gas_price);
 		}

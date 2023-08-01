@@ -56,7 +56,8 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub base_fee_per_gas: U256,
 		pub elasticity: Permill,
-		_marker: PhantomData<T>,
+		#[serde(skip)]
+		pub _marker: PhantomData<T>,
 	}
 
 	impl<T: Config> GenesisConfig<T> {

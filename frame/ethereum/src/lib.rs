@@ -339,11 +339,14 @@ pub mod pallet {
 	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
 
 	#[pallet::genesis_config]
-	#[derive(Default)]
-	pub struct GenesisConfig {}
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T> {
+		#[serde(skip)]
+		pub _marker: PhantomData<T>,
+	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			<Pallet<T>>::store_block(None, U256::zero());
 			frame_support::storage::unhashed::put::<EthereumStorageSchema>(

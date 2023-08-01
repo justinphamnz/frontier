@@ -512,13 +512,15 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	#[derive(Default)]
-	pub struct GenesisConfig {
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T> {
 		pub accounts: BTreeMap<H160, GenesisAccount>,
+		#[serde(skip)]
+		pub _marker: PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
 	where
 		U256: UniqueSaturatedInto<BalanceOf<T>>,
 	{
