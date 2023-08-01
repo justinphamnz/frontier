@@ -114,7 +114,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_: T::BlockNumber) -> Weight {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			// Register the Weight used on_finalize.
 			// 	- One storage read to get the block_weight.
 			// 	- One storage read to get the Elasticity.
