@@ -89,7 +89,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T> {
 		pub min_gas_price: U256,
 		#[serde(skip)]
-		pub _marker: PhantomData<T>;
+		pub _marker: PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
