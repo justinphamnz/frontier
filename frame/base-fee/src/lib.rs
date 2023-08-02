@@ -123,7 +123,7 @@ pub mod pallet {
 			db_weight.reads_writes(2, 1)
 		}
 
-		fn on_finalize(_n: <T as frame_system::Config>::BlockNumber) {
+		fn on_finalize(_n: BlockNumberFor<T>) {
 			if <Elasticity<T>>::get().is_zero() {
 				// Zero elasticity means constant BaseFeePerGas.
 				return;
