@@ -261,15 +261,20 @@ where
 			_ => used_gas.into(),
 		};
 		let actual_fee = effective_gas.saturating_mul(total_fee_per_gas);
+		let actual_base_fee = effective_gas.saturating_mul(base_fee);
 
 		log::debug!(
 			target: "evm",
-			"Execution {:?} [source: {:?}, value: {}, gas_limit: {}, actual_fee: {}, is_transactional: {}]",
+			"Execution {:?} [source: {:?}, value: {}, gas_limit: {}, actual_fee: {}, used_gas: {}, effective_gas: {}, base_fee: {}, total_fee_per_gas: {}, is_transactional: {}]",
 			reason,
 			source,
 			value,
 			gas_limit,
 			actual_fee,
+			used_gas,
+			effective_gas,
+			base_fee,
+			total_fee_per_gas,
 			is_transactional
 		);
 		// The difference between initially withdrawn and the actual cost is refunded.
@@ -298,7 +303,7 @@ where
 			// Actual fee after evm execution, including tip.
 			actual_fee,
 			// Base fee.
-			executor.fee(base_fee),
+			actual_base_fee,
 			// Fee initially withdrawn.
 			fee,
 		);
@@ -1237,6 +1242,8 @@ mod tests {
 			&config,
 			&MockPrecompileSet,
 			false,
+			None,
+			None,
 			|_| {
 				let res = Runner::<Test>::execute(
 					H160::default(),
@@ -1247,6 +1254,8 @@ mod tests {
 					&config,
 					&MockPrecompileSet,
 					false,
+					None,
+					None,
 					|_| (ExitReason::Succeed(ExitSucceed::Stopped), ()),
 				);
 				assert_matches!(
@@ -1277,6 +1286,8 @@ mod tests {
 			&config,
 			&MockPrecompileSet,
 			false,
+			None,
+			None,
 			|_| (ExitReason::Succeed(ExitSucceed::Stopped), ()),
 		);
 		assert!(res.is_ok());
