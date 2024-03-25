@@ -17,7 +17,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::large_enum_variant)]
-#![deny(unused_crate_dependencies)]
+#![warn(unused_crate_dependencies)]
 
 use scale_codec::{Decode, Encode};
 use sp_core::H256;
@@ -130,8 +130,5 @@ pub fn find_log(digest: &Digest) -> Result<Log, FindLogError> {
 }
 
 pub fn ensure_log(digest: &Digest) -> Result<(), FindLogError> {
-	match find_log(digest) {
-		Err(FindLogError::MultipleLogs) => Err(FindLogError::MultipleLogs),
-		_ => Ok(()),
-	}
+	find_log(digest).map(|_log| ())
 }
